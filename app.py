@@ -168,6 +168,6 @@ def download_file(session_id, filename):
 if __name__ == '__main__':
     print("=" * 50)
     print("STL Mesh Reducer - Version Web")
-    print("Ouvrez http://localhost:5000 dans votre navigateur")
+    print("Ouvrez http://localhost:8003 dans votre navigateur")
     print("=" * 50)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8003)
