@@ -1,15 +1,13 @@
 /**
  * STL Reducer SaaS - Application JavaScript
- * Gère l'upload de fichiers, la visualisation 3D et l'interaction utilisateur
+ * Gère l'upload de fichiers multiples, la visualisation 3D et l'interaction utilisateur
  */
 
 // État de l'application
 const appState = {
-    fileId: null,
-    fileName: null,
-    originalTriangles: 0,
-    originalVertices: 0,
-    reducedTriangles: 0,
+    files: [], // Liste des fichiers {id, name, status, originalInfo, reducedInfo}
+    currentFileIndex: 0,
+    reductionRate: 50,
     viewers: {
         original: null,
         reduced: null
@@ -34,83 +32,64 @@ class STLViewer {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
 
-        // Scène
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xf5f7fa);
 
-        // Caméra
         this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
         this.camera.position.set(100, 100, 100);
 
-        // Renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(width, height);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.container.appendChild(this.renderer.domElement);
 
-        // Contrôles orbitaux
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
         this.controls.screenSpacePanning = true;
 
-        // Éclairage
         this.setupLighting();
 
-        // Grille d'aide
         const gridHelper = new THREE.GridHelper(200, 20, 0xcccccc, 0xe0e0e0);
         this.scene.add(gridHelper);
 
-        // Gestion du redimensionnement
         window.addEventListener('resize', () => this.onResize());
-
-        // Démarrage de l'animation
         this.animate();
     }
 
     setupLighting() {
-        // Lumière ambiante
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
 
-        // Lumière directionnelle principale
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
         mainLight.position.set(50, 100, 50);
         mainLight.castShadow = true;
         this.scene.add(mainLight);
 
-        // Lumière de remplissage
         const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
         fillLight.position.set(-50, 50, -50);
         this.scene.add(fillLight);
 
-        // Lumière arrière
         const backLight = new THREE.DirectionalLight(0xffffff, 0.2);
         backLight.position.set(0, -50, -100);
         this.scene.add(backLight);
     }
 
     loadMesh(data) {
-        // Supprime le mesh existant
         if (this.mesh) {
             this.scene.remove(this.mesh);
             this.mesh.geometry.dispose();
             this.mesh.material.dispose();
         }
 
-        // Création de la géométrie
         const geometry = new THREE.BufferGeometry();
-
-        // Vertices
         const vertices = new Float32Array(data.vertices);
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
-        // Indices (triangles)
         const indices = new Uint32Array(data.triangles);
         geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-        // Normales
         if (data.normals && data.normals.length > 0) {
             const normals = new Float32Array(data.normals);
             geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
@@ -118,7 +97,6 @@ class STLViewer {
             geometry.computeVertexNormals();
         }
 
-        // Matériau
         const material = new THREE.MeshStandardMaterial({
             color: 0x6366f1,
             metalness: 0.1,
@@ -127,38 +105,31 @@ class STLViewer {
             side: THREE.DoubleSide
         });
 
-        // Création du mesh
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
         this.scene.add(this.mesh);
 
-        // Centrage et mise à l'échelle
         this.centerAndScaleMesh();
     }
 
     centerAndScaleMesh() {
         if (!this.mesh) return;
 
-        // Calcul du bounding box
         this.mesh.geometry.computeBoundingBox();
         const boundingBox = this.mesh.geometry.boundingBox;
 
-        // Centre le mesh
         const center = new THREE.Vector3();
         boundingBox.getCenter(center);
         this.mesh.geometry.translate(-center.x, -center.y, -center.z);
 
-        // Calcul de la taille
         const size = new THREE.Vector3();
         boundingBox.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
 
-        // Mise à l'échelle pour que le mesh soit visible
         const scale = 80 / maxDim;
         this.mesh.scale.setScalar(scale);
 
-        // Positionne la caméra
         this.camera.position.set(100, 80, 100);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
@@ -221,67 +192,206 @@ function hideProgress() {
     document.getElementById('progressContainer').classList.add('hidden');
 }
 
-// Gestion de l'upload
-async function handleFileUpload(file) {
-    if (!file.name.toLowerCase().endsWith('.stl')) {
-        alert('Veuillez sélectionner un fichier STL valide.');
+// Mise à jour de la liste des fichiers dans l'interface
+function updateFileList() {
+    const fileList = document.getElementById('fileList');
+
+    if (appState.files.length === 0) {
+        fileList.innerHTML = '<p class="no-files">Aucun fichier</p>';
         return;
     }
 
-    showLoading('Téléchargement du fichier...');
+    fileList.innerHTML = appState.files.map((file, index) => `
+        <div class="file-item ${file.status} ${index === appState.currentFileIndex ? 'active' : ''}"
+             data-index="${index}" onclick="selectFile(${index})">
+            <div class="file-item-info">
+                <span class="file-item-name">${file.name}</span>
+                <span class="file-item-triangles">${file.originalInfo ? formatNumber(file.originalInfo.triangles) + ' triangles' : ''}</span>
+            </div>
+            <div class="file-item-status">
+                ${getStatusIcon(file.status)}
+            </div>
+            <button class="file-item-remove" onclick="event.stopPropagation(); removeFile(${index})" title="Supprimer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
 
-    const formData = new FormData();
-    formData.append('file', file);
+function getStatusIcon(status) {
+    switch(status) {
+        case 'pending':
+            return '<span class="status-badge pending">En attente</span>';
+        case 'processing':
+            return '<span class="status-badge processing"><span class="spinner-small"></span></span>';
+        case 'completed':
+            return '<span class="status-badge completed"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg></span>';
+        case 'error':
+            return '<span class="status-badge error"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg></span>';
+        default:
+            return '';
+    }
+}
 
-    try {
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-        });
+// Sélection d'un fichier dans la liste
+async function selectFile(index) {
+    if (index < 0 || index >= appState.files.length) return;
 
-        const data = await response.json();
+    appState.currentFileIndex = index;
+    const file = appState.files[index];
 
-        if (!response.ok) {
-            throw new Error(data.detail || 'Erreur lors du téléchargement');
+    updateFileList();
+    updateFileInfo(file);
+
+    // Charge la visualisation 3D
+    if (file.id) {
+        await loadMeshViewer('original', file.id);
+        if (file.status === 'completed') {
+            await loadMeshViewer('reduced', file.id);
+            document.getElementById('reducedPlaceholder')?.remove();
+        } else {
+            resetReducedViewer();
         }
+    }
+}
 
-        // Mise à jour de l'état
-        appState.fileId = data.file_id;
-        appState.fileName = data.filename;
-        appState.originalTriangles = data.info.triangles;
-        appState.originalVertices = data.info.vertices;
+function updateFileInfo(file) {
+    document.getElementById('fileName').textContent = file.name;
 
-        // Mise à jour de l'interface
-        document.getElementById('fileName').textContent = data.filename;
-        document.getElementById('originalVertices').textContent = formatNumber(data.info.vertices);
-        document.getElementById('originalTriangles').textContent = formatNumber(data.info.triangles);
+    if (file.originalInfo) {
+        document.getElementById('originalVertices').textContent = formatNumber(file.originalInfo.vertices);
+        document.getElementById('originalTriangles').textContent = formatNumber(file.originalInfo.triangles);
         document.getElementById('originalDimensions').textContent =
-            `${data.info.dimensions.x.toFixed(1)} x ${data.info.dimensions.y.toFixed(1)} x ${data.info.dimensions.z.toFixed(1)} mm`;
+            `${file.originalInfo.dimensions.x.toFixed(1)} x ${file.originalInfo.dimensions.y.toFixed(1)} x ${file.originalInfo.dimensions.z.toFixed(1)} mm`;
 
-        // Affiche la section de traitement
-        document.getElementById('uploadSection').classList.add('hidden');
-        document.getElementById('processingSection').classList.remove('hidden');
+        updateEstimatedTriangles(file.originalInfo.triangles);
+    }
 
-        // Charge la visualisation 3D
-        await loadMeshViewer('original');
-        updateEstimatedTriangles();
+    // Afficher/masquer les résultats
+    if (file.status === 'completed' && file.reducedInfo) {
+        document.getElementById('beforeTriangles').textContent = formatNumber(file.originalInfo.triangles);
+        document.getElementById('afterTriangles').textContent = formatNumber(file.reducedInfo.triangles);
+        const reduction = (1 - file.reducedInfo.triangles / file.originalInfo.triangles) * 100;
+        document.getElementById('reductionPercentage').textContent = reduction.toFixed(1);
+        document.getElementById('resultSection').classList.remove('hidden');
+    } else {
+        document.getElementById('resultSection').classList.add('hidden');
+    }
+}
 
-        hideLoading();
+function resetReducedViewer() {
+    const reducedViewer = document.getElementById('reducedViewer');
+    if (appState.viewers.reduced) {
+        appState.viewers.reduced.dispose();
+        appState.viewers.reduced = null;
+    }
+    reducedViewer.innerHTML = `
+        <div class="viewer-placeholder" id="reducedPlaceholder">
+            <p>Configurez les paramètres et lancez la réduction</p>
+        </div>
+    `;
+}
 
-    } catch (error) {
-        hideLoading();
-        console.error('Erreur:', error);
-        alert(`Erreur: ${error.message}`);
+// Suppression d'un fichier
+async function removeFile(index) {
+    const file = appState.files[index];
+
+    // Supprime sur le serveur
+    if (file.id) {
+        try {
+            await fetch(`/api/file/${file.id}`, { method: 'DELETE' });
+        } catch (e) {
+            console.log('Erreur suppression:', e);
+        }
+    }
+
+    appState.files.splice(index, 1);
+
+    if (appState.files.length === 0) {
+        resetForNewFile();
+    } else {
+        if (appState.currentFileIndex >= appState.files.length) {
+            appState.currentFileIndex = appState.files.length - 1;
+        }
+        updateFileList();
+        selectFile(appState.currentFileIndex);
+    }
+}
+
+// Gestion de l'upload de plusieurs fichiers
+async function handleFilesUpload(files) {
+    const stlFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.stl'));
+
+    if (stlFiles.length === 0) {
+        alert('Veuillez sélectionner des fichiers STL valides.');
+        return;
+    }
+
+    showLoading(`Téléchargement de ${stlFiles.length} fichier(s)...`);
+
+    // Affiche la section de traitement
+    document.getElementById('uploadSection').classList.add('hidden');
+    document.getElementById('processingSection').classList.remove('hidden');
+
+    for (let i = 0; i < stlFiles.length; i++) {
+        const file = stlFiles[i];
+        showLoading(`Téléchargement ${i + 1}/${stlFiles.length}: ${file.name}`);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Erreur lors du téléchargement');
+            }
+
+            appState.files.push({
+                id: data.file_id,
+                name: data.filename,
+                status: 'pending',
+                originalInfo: data.info,
+                reducedInfo: null
+            });
+
+        } catch (error) {
+            console.error('Erreur upload:', error);
+            appState.files.push({
+                id: null,
+                name: file.name,
+                status: 'error',
+                originalInfo: null,
+                reducedInfo: null,
+                error: error.message
+            });
+        }
+    }
+
+    hideLoading();
+    updateFileList();
+
+    // Sélectionne le premier fichier
+    if (appState.files.length > 0) {
+        selectFile(0);
     }
 }
 
 // Charge le mesh dans un viewer
-async function loadMeshViewer(type) {
+async function loadMeshViewer(type, fileId) {
     const viewerId = type === 'original' ? 'originalViewer' : 'reducedViewer';
     const statsId = type === 'original' ? 'originalViewerStats' : 'reducedViewerStats';
 
     try {
-        const response = await fetch(`/api/mesh/${appState.fileId}/${type}`);
+        const response = await fetch(`/api/mesh/${fileId}/${type}`);
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -290,12 +400,10 @@ async function loadMeshViewer(type) {
 
         const data = await response.json();
 
-        // Crée ou réutilise le viewer
         if (appState.viewers[type]) {
             appState.viewers[type].dispose();
         }
 
-        // Supprime le placeholder si présent
         const placeholder = document.getElementById('reducedPlaceholder');
         if (placeholder && type === 'reduced') {
             placeholder.remove();
@@ -304,7 +412,6 @@ async function loadMeshViewer(type) {
         appState.viewers[type] = new STLViewer(viewerId);
         appState.viewers[type].loadMesh(data.data);
 
-        // Met à jour les stats du viewer
         const triangleCount = data.data.triangles.length / 3;
         document.getElementById(statsId).textContent = `${formatNumber(triangleCount)} triangles`;
 
@@ -314,74 +421,98 @@ async function loadMeshViewer(type) {
 }
 
 // Mise à jour des triangles estimés
-function updateEstimatedTriangles() {
+function updateEstimatedTriangles(originalTriangles) {
     const slider = document.getElementById('reductionSlider');
     const reductionRate = slider.value / 100;
-    const estimated = Math.max(Math.round(appState.originalTriangles * reductionRate), 100);
+    const triangles = originalTriangles || appState.files[appState.currentFileIndex]?.originalInfo?.triangles || 0;
+    const estimated = Math.max(Math.round(triangles * reductionRate), 100);
     document.getElementById('estimatedTriangles').textContent = formatNumber(estimated);
 }
 
-// Réduction du mesh
-async function reduceMesh() {
+// Réduction de tous les fichiers
+async function reduceAllFiles() {
     const slider = document.getElementById('reductionSlider');
     const reductionRate = slider.value / 100;
 
-    showProgress(0, 'Démarrage de la réduction...');
+    const pendingFiles = appState.files.filter(f => f.status === 'pending' && f.id);
 
-    try {
-        // Simulation de progression
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-            progress = Math.min(progress + 5, 90);
-            showProgress(progress, 'Traitement en cours...');
-        }, 200);
+    if (pendingFiles.length === 0) {
+        alert('Aucun fichier en attente de traitement.');
+        return;
+    }
 
-        const formData = new FormData();
-        formData.append('reduction_rate', reductionRate);
+    for (let i = 0; i < appState.files.length; i++) {
+        const file = appState.files[i];
+        if (file.status !== 'pending' || !file.id) continue;
 
-        const response = await fetch(`/api/reduce/${appState.fileId}`, {
-            method: 'POST',
-            body: formData
-        });
+        file.status = 'processing';
+        appState.currentFileIndex = i;
+        updateFileList();
 
-        clearInterval(progressInterval);
+        showProgress((i / pendingFiles.length) * 100, `Traitement de ${file.name}...`);
 
-        const data = await response.json();
+        try {
+            const formData = new FormData();
+            formData.append('reduction_rate', reductionRate);
 
-        if (!response.ok) {
-            throw new Error(data.detail || 'Erreur lors de la réduction');
+            const response = await fetch(`/api/reduce/${file.id}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Erreur lors de la réduction');
+            }
+
+            file.status = 'completed';
+            file.reducedInfo = data.reduced_info;
+
+        } catch (error) {
+            console.error('Erreur réduction:', error);
+            file.status = 'error';
+            file.error = error.message;
         }
 
-        showProgress(100, 'Finalisation...');
+        updateFileList();
+    }
 
-        // Mise à jour de l'état
-        appState.reducedTriangles = data.reduced_info.triangles;
+    hideProgress();
 
-        // Charge le mesh réduit
-        await loadMeshViewer('reduced');
+    // Affiche le fichier courant avec ses résultats
+    selectFile(appState.currentFileIndex);
 
-        // Affiche les résultats
-        document.getElementById('beforeTriangles').textContent = formatNumber(data.original_info.triangles);
-        document.getElementById('afterTriangles').textContent = formatNumber(data.reduced_info.triangles);
-        document.getElementById('reductionPercentage').textContent = data.reduction_percentage.toFixed(1);
-
-        document.getElementById('resultSection').classList.remove('hidden');
-        hideProgress();
-
-    } catch (error) {
-        hideProgress();
-        console.error('Erreur:', error);
-        alert(`Erreur: ${error.message}`);
+    // Vérifie si tous les fichiers sont traités
+    const completedCount = appState.files.filter(f => f.status === 'completed').length;
+    if (completedCount > 0) {
+        alert(`Traitement terminé ! ${completedCount}/${appState.files.length} fichier(s) réduit(s).`);
     }
 }
 
-// Téléchargement du fichier réduit
+// Téléchargement du fichier réduit actuel
 function downloadReducedFile() {
-    if (!appState.fileId) return;
-    window.location.href = `/api/download/${appState.fileId}/reduced`;
+    const file = appState.files[appState.currentFileIndex];
+    if (!file || !file.id || file.status !== 'completed') return;
+    window.location.href = `/api/download/${file.id}/reduced`;
 }
 
-// Réinitialisation pour un nouveau fichier
+// Téléchargement de tous les fichiers réduits
+async function downloadAllReducedFiles() {
+    const completedFiles = appState.files.filter(f => f.status === 'completed' && f.id);
+
+    if (completedFiles.length === 0) {
+        alert('Aucun fichier réduit à télécharger.');
+        return;
+    }
+
+    for (const file of completedFiles) {
+        window.open(`/api/download/${file.id}/reduced`, '_blank');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Petit délai entre les téléchargements
+    }
+}
+
+// Réinitialisation pour de nouveaux fichiers
 function resetForNewFile() {
     // Nettoie les viewers
     if (appState.viewers.original) {
@@ -393,18 +524,17 @@ function resetForNewFile() {
         appState.viewers.reduced = null;
     }
 
-    // Supprime le fichier sur le serveur
-    if (appState.fileId) {
-        fetch(`/api/file/${appState.fileId}`, { method: 'DELETE' })
-            .catch(err => console.log('Nettoyage:', err));
+    // Supprime les fichiers sur le serveur
+    for (const file of appState.files) {
+        if (file.id) {
+            fetch(`/api/file/${file.id}`, { method: 'DELETE' })
+                .catch(err => console.log('Nettoyage:', err));
+        }
     }
 
     // Réinitialise l'état
-    appState.fileId = null;
-    appState.fileName = null;
-    appState.originalTriangles = 0;
-    appState.originalVertices = 0;
-    appState.reducedTriangles = 0;
+    appState.files = [];
+    appState.currentFileIndex = 0;
 
     // Réinitialise l'interface
     document.getElementById('uploadSection').classList.remove('hidden');
@@ -412,14 +542,9 @@ function resetForNewFile() {
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('reductionSlider').value = 50;
     document.getElementById('reductionValue').textContent = '50';
+    document.getElementById('fileInput').value = '';
 
-    // Recrée le placeholder pour le viewer réduit
-    const reducedViewer = document.getElementById('reducedViewer');
-    reducedViewer.innerHTML = `
-        <div class="viewer-placeholder" id="reducedPlaceholder">
-            <p>Configurez les paramètres et lancez la réduction</p>
-        </div>
-    `;
+    resetReducedViewer();
 }
 
 // Initialisation
@@ -432,6 +557,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const reduceBtn = document.getElementById('reduceBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const newFileBtn = document.getElementById('newFileBtn');
+
+    // Support fichiers multiples
+    fileInput.setAttribute('multiple', 'multiple');
 
     // Événements de drag & drop
     dropZone.addEventListener('dragover', (e) => {
@@ -450,11 +578,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-            handleFileUpload(files[0]);
+            handleFilesUpload(files);
         }
     });
 
-    // Clic sur la zone de drop
     dropZone.addEventListener('click', () => {
         fileInput.click();
     });
@@ -466,22 +593,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            handleFileUpload(e.target.files[0]);
+            handleFilesUpload(e.target.files);
         }
     });
 
-    // Slider de réduction
     reductionSlider.addEventListener('input', (e) => {
         reductionValue.textContent = e.target.value;
         updateEstimatedTriangles();
     });
 
-    // Bouton de réduction
-    reduceBtn.addEventListener('click', reduceMesh);
-
-    // Bouton de téléchargement
+    reduceBtn.addEventListener('click', reduceAllFiles);
     downloadBtn.addEventListener('click', downloadReducedFile);
-
-    // Bouton nouveau fichier
     newFileBtn.addEventListener('click', resetForNewFile);
+
+    // Bouton télécharger tout
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    if (downloadAllBtn) {
+        downloadAllBtn.addEventListener('click', downloadAllReducedFiles);
+    }
+
+    // Bouton ajouter plus de fichiers
+    const addMoreFilesBtn = document.getElementById('addMoreFilesBtn');
+    if (addMoreFilesBtn) {
+        addMoreFilesBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+    }
 });

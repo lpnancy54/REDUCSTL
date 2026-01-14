@@ -37,145 +37,177 @@
                             <polyline points="17,8 12,3 7,8"/>
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
-                        <p class="drop-text">Glissez votre fichier STL ici</p>
+                        <p class="drop-text">Glissez vos fichiers STL ici</p>
                         <p class="drop-subtext">ou</p>
-                        <button class="btn btn-primary" id="selectFileBtn">Sélectionner un fichier</button>
-                        <input type="file" id="fileInput" accept=".stl" hidden>
-                        <p class="file-info">Formats acceptés: .stl (max 100 MB)</p>
+                        <button class="btn btn-primary" id="selectFileBtn">Sélectionner des fichiers</button>
+                        <input type="file" id="fileInput" accept=".stl" multiple hidden>
+                        <p class="file-info">Formats acceptés: .stl - Plusieurs fichiers supportés</p>
                     </div>
                 </div>
             </section>
 
             <!-- Processing Section -->
             <section class="processing-section hidden" id="processingSection">
-                <!-- File Info Panel -->
-                <div class="file-info-panel">
-                    <h3 id="fileName">model.stl</h3>
-                    <div class="mesh-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Vertices</span>
-                            <span class="stat-value" id="originalVertices">-</span>
+                <div class="processing-layout">
+                    <!-- File List Sidebar -->
+                    <aside class="file-list-panel">
+                        <div class="file-list-header">
+                            <h3>Fichiers</h3>
+                            <span class="file-count" id="fileCount"></span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Triangles</span>
-                            <span class="stat-value" id="originalTriangles">-</span>
+                        <div class="file-list" id="fileList">
+                            <p class="no-files">Aucun fichier</p>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Dimensions</span>
-                            <span class="stat-value" id="originalDimensions">-</span>
+                        <div class="file-list-actions">
+                            <button class="btn btn-secondary btn-small" id="addMoreFilesBtn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 5v14M5 12h14"/>
+                                </svg>
+                                Ajouter
+                            </button>
                         </div>
-                    </div>
-                </div>
+                    </aside>
 
-                <!-- 3D Viewer -->
-                <div class="viewer-container">
-                    <div class="viewer-panel">
-                        <div class="viewer-header">
-                            <span class="viewer-title">Original</span>
-                            <span class="viewer-stats" id="originalViewerStats"></span>
-                        </div>
-                        <div class="viewer-canvas" id="originalViewer"></div>
-                    </div>
-                    <div class="viewer-panel">
-                        <div class="viewer-header">
-                            <span class="viewer-title">Réduit</span>
-                            <span class="viewer-stats" id="reducedViewerStats"></span>
-                        </div>
-                        <div class="viewer-canvas" id="reducedViewer">
-                            <div class="viewer-placeholder" id="reducedPlaceholder">
-                                <p>Configurez les paramètres et lancez la réduction</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Controls -->
-                <div class="controls-panel">
-                    <div class="slider-container">
-                        <label for="reductionSlider">Taux de réduction</label>
-                        <div class="slider-wrapper">
-                            <input type="range" id="reductionSlider" min="10" max="90" value="50" class="slider">
-                            <div class="slider-value">
-                                <span id="reductionValue">50</span>%
-                            </div>
-                        </div>
-                        <div class="slider-labels">
-                            <span>10% (moins de réduction)</span>
-                            <span>90% (plus de réduction)</span>
-                        </div>
-                    </div>
-
-                    <div class="estimated-result">
-                        <p>Triangles estimés après réduction: <strong id="estimatedTriangles">-</strong></p>
-                    </div>
-
-                    <div class="action-buttons">
-                        <button class="btn btn-secondary" id="newFileBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 5v14M5 12h14"/>
-                            </svg>
-                            Nouveau fichier
-                        </button>
-                        <button class="btn btn-primary btn-large" id="reduceBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7,10 12,15 17,10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Réduire le mesh
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="progress-container hidden" id="progressContainer">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                    <p class="progress-text" id="progressText">Traitement en cours...</p>
-                </div>
-
-                <!-- Result Section -->
-                <div class="result-section hidden" id="resultSection">
-                    <div class="result-card">
-                        <div class="result-icon success">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                <polyline points="22,4 12,14.01 9,11.01"/>
-                            </svg>
-                        </div>
-                        <h3>Réduction terminée !</h3>
-                        <div class="result-stats">
-                            <div class="stat-comparison">
-                                <div class="stat-before">
-                                    <span class="label">Avant</span>
-                                    <span class="value" id="beforeTriangles">-</span>
-                                    <span class="unit">triangles</span>
+                    <!-- Main Processing Area -->
+                    <div class="processing-main">
+                        <!-- File Info Panel -->
+                        <div class="file-info-panel">
+                            <h3 id="fileName">model.stl</h3>
+                            <div class="mesh-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Vertices</span>
+                                    <span class="stat-value" id="originalVertices">-</span>
                                 </div>
-                                <div class="stat-arrow">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="5" y1="12" x2="19" y2="12"/>
-                                        <polyline points="12,5 19,12 12,19"/>
+                                <div class="stat-item">
+                                    <span class="stat-label">Triangles</span>
+                                    <span class="stat-value" id="originalTriangles">-</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Dimensions</span>
+                                    <span class="stat-value" id="originalDimensions">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3D Viewer -->
+                        <div class="viewer-container">
+                            <div class="viewer-panel">
+                                <div class="viewer-header">
+                                    <span class="viewer-title">Original</span>
+                                    <span class="viewer-stats" id="originalViewerStats"></span>
+                                </div>
+                                <div class="viewer-canvas" id="originalViewer"></div>
+                            </div>
+                            <div class="viewer-panel">
+                                <div class="viewer-header">
+                                    <span class="viewer-title">Réduit</span>
+                                    <span class="viewer-stats" id="reducedViewerStats"></span>
+                                </div>
+                                <div class="viewer-canvas" id="reducedViewer">
+                                    <div class="viewer-placeholder" id="reducedPlaceholder">
+                                        <p>Configurez les paramètres et lancez la réduction</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="controls-panel">
+                            <div class="slider-container">
+                                <label for="reductionSlider">Taux de réduction (appliqué à tous les fichiers)</label>
+                                <div class="slider-wrapper">
+                                    <input type="range" id="reductionSlider" min="10" max="90" value="50" class="slider">
+                                    <div class="slider-value">
+                                        <span id="reductionValue">50</span>%
+                                    </div>
+                                </div>
+                                <div class="slider-labels">
+                                    <span>10% (moins de réduction)</span>
+                                    <span>90% (plus de réduction)</span>
+                                </div>
+                            </div>
+
+                            <div class="estimated-result">
+                                <p>Triangles estimés après réduction: <strong id="estimatedTriangles">-</strong></p>
+                            </div>
+
+                            <div class="action-buttons">
+                                <button class="btn btn-secondary" id="newFileBtn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                    </svg>
+                                    Tout effacer
+                                </button>
+                                <button class="btn btn-primary btn-large" id="reduceBtn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+                                    </svg>
+                                    Réduire tous les fichiers
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="progress-container hidden" id="progressContainer">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <p class="progress-text" id="progressText">Traitement en cours...</p>
+                        </div>
+
+                        <!-- Result Section -->
+                        <div class="result-section hidden" id="resultSection">
+                            <div class="result-card">
+                                <div class="result-icon success">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                        <polyline points="22,4 12,14.01 9,11.01"/>
                                     </svg>
                                 </div>
-                                <div class="stat-after">
-                                    <span class="label">Après</span>
-                                    <span class="value" id="afterTriangles">-</span>
-                                    <span class="unit">triangles</span>
+                                <h3>Réduction terminée !</h3>
+                                <div class="result-stats">
+                                    <div class="stat-comparison">
+                                        <div class="stat-before">
+                                            <span class="label">Avant</span>
+                                            <span class="value" id="beforeTriangles">-</span>
+                                            <span class="unit">triangles</span>
+                                        </div>
+                                        <div class="stat-arrow">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12,5 19,12 12,19"/>
+                                            </svg>
+                                        </div>
+                                        <div class="stat-after">
+                                            <span class="label">Après</span>
+                                            <span class="value" id="afterTriangles">-</span>
+                                            <span class="unit">triangles</span>
+                                        </div>
+                                    </div>
+                                    <div class="reduction-badge">
+                                        <span id="reductionPercentage">-</span>% de réduction
+                                    </div>
+                                </div>
+                                <div class="result-buttons">
+                                    <button class="btn btn-success" id="downloadBtn">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7,10 12,15 17,10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                        Télécharger ce fichier
+                                    </button>
+                                    <button class="btn btn-success btn-outline" id="downloadAllBtn">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7,10 12,15 17,10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                        Télécharger tous les fichiers
+                                    </button>
                                 </div>
                             </div>
-                            <div class="reduction-badge">
-                                <span id="reductionPercentage">-</span>% de réduction
-                            </div>
                         </div>
-                        <button class="btn btn-success btn-large" id="downloadBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7,10 12,15 17,10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            Télécharger le fichier réduit
-                        </button>
                     </div>
                 </div>
             </section>
