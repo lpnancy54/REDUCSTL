@@ -5,11 +5,11 @@ python-multipart
 jinja2
 aiofiles
 
-# Traitement STL
-open3d
+# Traitement STL (trimesh est plus compatible que open3d)
 trimesh
 numpy
+scipy
+networkx
 
-# Utilitaires (ancien GUI - optionnel)
-# tkinterdnd2
-# Pillow
+# Open3D optionnel (nécessite Python 3.8-3.11)
+# pip install open3d

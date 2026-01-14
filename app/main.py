@@ -97,23 +97,7 @@ async def upload_file(file: UploadFile = File(...)):
             buffer.write(content)
 
         # Récupération des informations du mesh
-        try:
-            import open3d as o3d
-            mesh = o3d.io.read_triangle_mesh(str(file_path))
-            mesh_info = get_mesh_info(mesh)
-        except ImportError:
-            # Fallback avec trimesh si open3d n'est pas disponible
-            import trimesh
-            mesh = trimesh.load(str(file_path))
-            mesh_info = {
-                "vertices": len(mesh.vertices),
-                "triangles": len(mesh.faces),
-                "dimensions": {
-                    "x": float(mesh.bounds[1][0] - mesh.bounds[0][0]),
-                    "y": float(mesh.bounds[1][1] - mesh.bounds[0][1]),
-                    "z": float(mesh.bounds[1][2] - mesh.bounds[0][2])
-                }
-            }
+        mesh_info = get_mesh_info(str(file_path))
 
         return JSONResponse({
             "success": True,
