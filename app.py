@@ -43,16 +43,26 @@ def reduire_stl(input_path, output_path, taux):
 
     mesh = nettoyer_mesh(mesh)
     triangles_origine = len(mesh.triangles)
+    vertices_origine = len(mesh.vertices)
     cible = max(int(triangles_origine * taux), 100)
     mesh_simplifie = mesh.simplify_quadric_decimation(cible)
     mesh_simplifie = nettoyer_mesh(mesh_simplifie)
 
     o3d.io.write_triangle_mesh(output_path, mesh_simplifie)
 
+    # Calculer les tailles de fichiers
+    taille_origine = os.path.getsize(input_path)
+    taille_reduit = os.path.getsize(output_path)
+
     return {
         'triangles_origine': triangles_origine,
         'triangles_final': len(mesh_simplifie.triangles),
-        'reduction_reelle': round((1 - len(mesh_simplifie.triangles) / triangles_origine) * 100, 1)
+        'vertices_origine': vertices_origine,
+        'vertices_final': len(mesh_simplifie.vertices),
+        'taille_origine': taille_origine,
+        'taille_reduit': taille_reduit,
+        'reduction_reelle': round((1 - len(mesh_simplifie.triangles) / triangles_origine) * 100, 1),
+        'reduction_taille': round((1 - taille_reduit / taille_origine) * 100, 1)
     }
 
 
@@ -91,16 +101,29 @@ def upload_files():
             output_filename = f"{base}_reduit_{int(taux * 100)}pc{ext}"
             output_path = os.path.join(session_folder, output_filename)
 
+            # Garder une copie de l'original pour la visualisation
+            original_filename = f"{base}_original{ext}"
+            original_path = os.path.join(session_folder, original_filename)
+
             try:
+                # Copier l'original avant réduction
+                shutil.copy2(input_path, original_path)
+
                 stats = reduire_stl(input_path, output_path, taux)
                 resultats.append({
                     'fichier': filename,
+                    'fichier_original': original_filename,
                     'fichier_sortie': output_filename,
                     'succes': True,
                     **stats
                 })
-                fichiers_traites.append(output_path)
-                # Supprimer le fichier original
+                fichiers_traites.append({
+                    'original': original_path,
+                    'reduit': output_path,
+                    'original_name': original_filename,
+                    'reduit_name': output_filename
+                })
+                # Supprimer le fichier input (on garde original_path)
                 os.remove(input_path)
             except Exception as e:
                 resultats.append({
@@ -110,18 +133,24 @@ def upload_files():
                 })
                 if os.path.exists(input_path):
                     os.remove(input_path)
+                if os.path.exists(original_path):
+                    os.remove(original_path)
 
     if not fichiers_traites:
         shutil.rmtree(session_folder, ignore_errors=True)
         return jsonify({'error': 'Aucun fichier n\'a pu être traité', 'details': resultats}), 400
 
-    # Si un seul fichier, retourner directement
+    # Si un seul fichier, retourner avec URLs de visualisation
     if len(fichiers_traites) == 1:
+        f = fichiers_traites[0]
         return jsonify({
             'succes': True,
             'session_id': session_id,
             'fichiers': resultats,
-            'download_url': f'/download/{session_id}/{os.path.basename(fichiers_traites[0])}'
+            'download_url': f'/download/{session_id}/{f["reduit_name"]}',
+            'view_original_url': f'/view/{session_id}/{f["original_name"]}',
+            'view_reduit_url': f'/view/{session_id}/{f["reduit_name"]}',
+            'compare_url': f'/compare/{session_id}/{f["original_name"]}/{f["reduit_name"]}'
         })
 
     # Si plusieurs fichiers, créer un ZIP
@@ -129,16 +158,38 @@ def upload_files():
     zip_path = os.path.join(session_folder, zip_filename)
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for filepath in fichiers_traites:
-            zipf.write(filepath, os.path.basename(filepath))
+        for f in fichiers_traites:
+            zipf.write(f['reduit'], os.path.basename(f['reduit']))
 
     return jsonify({
         'succes': True,
         'session_id': session_id,
         'fichiers': resultats,
         'download_url': f'/download/{session_id}/{zip_filename}',
-        'is_zip': True
+        'is_zip': True,
+        'compare_available': True
     })
+
+
+@app.route('/view/<session_id>/<filename>')
+def view_file(session_id, filename):
+    """Sert un fichier STL pour la visualisation 3D."""
+    session_folder = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(session_id))
+    file_path = os.path.join(session_folder, secure_filename(filename))
+
+    if not os.path.exists(file_path):
+        return jsonify({'error': 'Fichier non trouvé'}), 404
+
+    return send_file(file_path, mimetype='application/octet-stream')
+
+
+@app.route('/compare/<session_id>/<original>/<reduit>')
+def compare_page(session_id, original, reduit):
+    """Page de comparaison visuelle entre original et réduit."""
+    return render_template('compare.html',
+                           session_id=session_id,
+                           original=original,
+                           reduit=reduit)
 
 
 @app.route('/download/<session_id>/<filename>')
@@ -149,20 +200,22 @@ def download_file(session_id, filename):
     if not os.path.exists(file_path):
         return jsonify({'error': 'Fichier non trouvé'}), 404
 
-    @after_this_request
-    def cleanup(response):
-        # Nettoyer le dossier de session après téléchargement
-        try:
-            shutil.rmtree(session_folder, ignore_errors=True)
-        except Exception:
-            pass
-        return response
-
     return send_file(
         file_path,
         as_attachment=True,
         download_name=filename
     )
+
+
+@app.route('/cleanup/<session_id>')
+def cleanup_session(session_id):
+    """Nettoie les fichiers temporaires d'une session."""
+    session_folder = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(session_id))
+    try:
+        shutil.rmtree(session_folder, ignore_errors=True)
+        return jsonify({'succes': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

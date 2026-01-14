@@ -192,6 +192,22 @@
             margin-top: 15px;
         }
 
+        .btn-compare {
+            background: linear-gradient(135deg, #7b2cbf, #00d4ff);
+            color: #fff;
+            margin-top: 10px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+        }
+
         .progress-container {
             display: none;
             margin-top: 20px;
@@ -318,9 +334,14 @@
             <div class="results" id="results">
                 <h3 style="margin-bottom: 15px;">Résultats</h3>
                 <div id="resultsList"></div>
-                <button class="btn btn-download" id="downloadBtn" style="display: none;">
-                    Télécharger
-                </button>
+                <div class="btn-row" id="btnRow" style="display: none;">
+                    <button class="btn btn-compare" id="compareBtn">
+                        Comparer en 3D
+                    </button>
+                    <button class="btn btn-download" id="downloadBtn">
+                        Télécharger
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -466,16 +487,23 @@
             results.style.display = 'block';
             resultsList.innerHTML = '';
 
+            const btnRow = document.getElementById('btnRow');
+            const compareBtn = document.getElementById('compareBtn');
+
             data.fichiers.forEach(file => {
                 const div = document.createElement('div');
                 div.className = 'result-item' + (file.succes ? '' : ' error');
 
                 if (file.succes) {
+                    const tailleOrigine = file.taille_origine ? formatSize(file.taille_origine) : '';
+                    const tailleReduit = file.taille_reduit ? formatSize(file.taille_reduit) : '';
+                    const infoTaille = tailleOrigine && tailleReduit ? ` | ${tailleOrigine} → ${tailleReduit}` : '';
+
                     div.innerHTML = `
                         <div>
                             <div><strong>${file.fichier}</strong> → ${file.fichier_sortie}</div>
                             <div class="result-stats">
-                                ${file.triangles_origine.toLocaleString()} → ${file.triangles_final.toLocaleString()} triangles
+                                ${file.triangles_origine.toLocaleString()} → ${file.triangles_final.toLocaleString()} triangles${infoTaille}
                             </div>
                         </div>
                         <div class="result-reduction">-${file.reduction_reelle}%</div>
@@ -493,8 +521,19 @@
             });
 
             if (data.download_url) {
-                downloadBtn.style.display = 'block';
-                downloadBtn.textContent = data.is_zip ? 'Télécharger le ZIP' : 'Télécharger le fichier';
+                btnRow.style.display = 'flex';
+                downloadBtn.textContent = data.is_zip ? 'Télécharger ZIP' : 'Télécharger';
+
+                // Bouton de comparaison 3D
+                if (data.compare_url) {
+                    compareBtn.style.display = 'block';
+                    compareBtn.onclick = () => {
+                        window.open(data.compare_url, '_blank');
+                    };
+                } else {
+                    compareBtn.style.display = 'none';
+                }
+
                 downloadBtn.onclick = () => {
                     window.location.href = data.download_url;
                     // Reset après téléchargement
@@ -503,7 +542,7 @@
                         updateFileList();
                         results.style.display = 'none';
                         progressContainer.style.display = 'none';
-                        downloadBtn.style.display = 'none';
+                        btnRow.style.display = 'none';
                     }, 1000);
                 };
             }
