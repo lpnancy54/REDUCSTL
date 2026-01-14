@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STL Mesh Reducer - Réducteur de Mesh 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .drop-zone {
+            border: 3px dashed rgba(0, 212, 255, 0.5);
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.15);
+            transform: scale(1.02);
+        }
+
+        .drop-zone-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .drop-zone-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone-hint {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .file-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-icon {
+            color: #00d4ff;
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+            transition: transform 0.2s;
+        }
+
+        .file-remove:hover {
+            transform: scale(1.2);
+        }
+
+        .slider-container {
+            margin: 30px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .slider-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #00c853, #00e676);
+            color: #fff;
+            margin-top: 15px;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            color: #a0a0a0;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(0, 200, 83, 0.1);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #00c853;
+        }
+
+        .result-item.error {
+            background: rgba(255, 107, 107, 0.1);
+            border-left-color: #ff6b6b;
+        }
+
+        .result-stats {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        .result-reduction {
+            font-weight: bold;
+            color: #00c853;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .info-box {
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        .info-box strong {
+            color: #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>STL Mesh Reducer</h1>
+            <p class="subtitle">Réduisez la complexité de vos fichiers STL en quelques clics</p>
+        </header>
+
+        <div class="card">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">📁</div>
+                <div class="drop-zone-text">Glissez vos fichiers STL ici</div>
+                <div class="drop-zone-hint">ou cliquez pour sélectionner</div>
+                <input type="file" id="fileInput" multiple accept=".stl">
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>Taux de réduction</span>
+                    <span class="slider-value" id="sliderValue">50%</span>
+                </div>
+                <input type="range" id="reductionSlider" min="10" max="90" value="50">
+            </div>
+
+            <div class="info-box">
+                <strong>Note :</strong> Un taux de 50% signifie que le mesh final aura environ 50% des triangles d'origine.
+                Plus le pourcentage est bas, plus le fichier sera léger mais moins détaillé.
+            </div>
+
+            <button class="btn btn-primary" id="processBtn" disabled>
+                Réduire les fichiers
+            </button>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Traitement en cours...</div>
+            </div>
+
+            <div class="results" id="results">
+                <h3 style="margin-bottom: 15px;">Résultats</h3>
+                <div id="resultsList"></div>
+                <button class="btn btn-download" id="downloadBtn" style="display: none;">
+                    Télécharger
+                </button>
+            </div>
+        </div>
+
+        <footer>
+            <p>STL Mesh Reducer - Application de réduction de mesh 3D</p>
+        </footer>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const slider = document.getElementById('reductionSlider');
+        const sliderValue = document.getElementById('sliderValue');
+        const processBtn = document.getElementById('processBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const results = document.getElementById('results');
+        const resultsList = document.getElementById('resultsList');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let selectedFiles = [];
+
+        // Slider
+        slider.addEventListener('input', () => {
+            sliderValue.textContent = slider.value + '%';
+        });
+
+        // Drop zone events
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', () => {
+            handleFiles(fileInput.files);
+        });
+
+        function handleFiles(files) {
+            for (let file of files) {
+                if (file.name.toLowerCase().endsWith('.stl')) {
+                    if (!selectedFiles.find(f => f.name === file.name)) {
+                        selectedFiles.push(file);
+                    }
+                }
+            }
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <div class="file-name">
+                        <span class="file-icon">📄</span>
+                        <span>${file.name}</span>
+                        <span style="color: #888; font-size: 0.9rem;">(${formatSize(file.size)})</span>
+                    </div>
+                    <button class="file-remove" onclick="removeFile(${index})">×</button>
+                `;
+                fileList.appendChild(div);
+            });
+            processBtn.disabled = selectedFiles.length === 0;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Process files
+        processBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+            formData.append('taux', slider.value);
+
+            processBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            results.style.display = 'none';
+            progressFill.style.width = '0%';
+            progressText.textContent = 'Envoi des fichiers...';
+
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.random() * 10;
+                    progressFill.style.width = Math.min(progress, 90) + '%';
+                }
+            }, 300);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Terminé !';
+
+                const data = await response.json();
+
+                if (data.succes) {
+                    showResults(data);
+                } else {
+                    alert('Erreur: ' + (data.error || 'Une erreur est survenue'));
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                alert('Erreur de connexion: ' + error.message);
+            }
+
+            processBtn.disabled = false;
+        });
+
+        function showResults(data) {
+            results.style.display = 'block';
+            resultsList.innerHTML = '';
+
+            data.fichiers.forEach(file => {
+                const div = document.createElement('div');
+                div.className = 'result-item' + (file.succes ? '' : ' error');
+
+                if (file.succes) {
+                    div.innerHTML = `
+                        <div>
+                            <div><strong>${file.fichier}</strong> → ${file.fichier_sortie}</div>
+                            <div class="result-stats">
+                                ${file.triangles_origine.toLocaleString()} → ${file.triangles_final.toLocaleString()} triangles
+                            </div>
+                        </div>
+                        <div class="result-reduction">-${file.reduction_reelle}%</div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div>
+                            <div><strong>${file.fichier}</strong></div>
+                            <div class="result-stats" style="color: #ff6b6b;">Erreur: ${file.erreur}</div>
+                        </div>
+                    `;
+                }
+
+                resultsList.appendChild(div);
+            });
+
+            if (data.download_url) {
+                downloadBtn.style.display = 'block';
+                downloadBtn.textContent = data.is_zip ? 'Télécharger le ZIP' : 'Télécharger le fichier';
+                downloadBtn.onclick = () => {
+                    window.location.href = data.download_url;
+                    // Reset après téléchargement
+                    setTimeout(() => {
+                        selectedFiles = [];
+                        updateFileList();
+                        results.style.display = 'none';
+                        progressContainer.style.display = 'none';
+                        downloadBtn.style.display = 'none';
+                    }, 1000);
+                };
+            }
+        }
+    </script>
+</body>
+</html>
