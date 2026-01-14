@@ -10,9 +10,8 @@ import numpy as np
 # Trimesh est la bibliothèque par défaut (compatible avec toutes les versions de Python)
 try:
     import trimesh
-    from trimesh import simplify
     TRIMESH_AVAILABLE = True
-except ImportError:
+except Exception:
     TRIMESH_AVAILABLE = False
 
 # Open3D est optionnel (nécessite Python 3.8-3.11)
