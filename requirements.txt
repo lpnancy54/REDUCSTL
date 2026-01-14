@@ -1,3 +1,15 @@
+# Backend
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
+aiofiles
+
+# Traitement STL
 open3d
-tkinterdnd2
-Pillow
+trimesh
+numpy
+
+# Utilitaires (ancien GUI - optionnel)
+# tkinterdnd2
+# Pillow

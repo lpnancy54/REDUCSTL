@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STL Reducer - Réduction de fichiers STL en ligne</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 4L36 12V28L20 36L4 28V12L20 4Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <path d="M20 4L20 36" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                    <path d="M4 12L36 28" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                    <path d="M36 12L4 28" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+                </svg>
+                <h1>STL Reducer</h1>
+            </div>
+            <p class="tagline">Réduisez vos fichiers STL en ligne avec visualisation 3D</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section" id="uploadSection">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-content">
+                        <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17,8 12,3 7,8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p class="drop-text">Glissez votre fichier STL ici</p>
+                        <p class="drop-subtext">ou</p>
+                        <button class="btn btn-primary" id="selectFileBtn">Sélectionner un fichier</button>
+                        <input type="file" id="fileInput" accept=".stl" hidden>
+                        <p class="file-info">Formats acceptés: .stl (max 100 MB)</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Processing Section -->
+            <section class="processing-section hidden" id="processingSection">
+                <!-- File Info Panel -->
+                <div class="file-info-panel">
+                    <h3 id="fileName">model.stl</h3>
+                    <div class="mesh-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Vertices</span>
+                            <span class="stat-value" id="originalVertices">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Triangles</span>
+                            <span class="stat-value" id="originalTriangles">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Dimensions</span>
+                            <span class="stat-value" id="originalDimensions">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Viewer -->
+                <div class="viewer-container">
+                    <div class="viewer-panel">
+                        <div class="viewer-header">
+                            <span class="viewer-title">Original</span>
+                            <span class="viewer-stats" id="originalViewerStats"></span>
+                        </div>
+                        <div class="viewer-canvas" id="originalViewer"></div>
+                    </div>
+                    <div class="viewer-panel">
+                        <div class="viewer-header">
+                            <span class="viewer-title">Réduit</span>
+                            <span class="viewer-stats" id="reducedViewerStats"></span>
+                        </div>
+                        <div class="viewer-canvas" id="reducedViewer">
+                            <div class="viewer-placeholder" id="reducedPlaceholder">
+                                <p>Configurez les paramètres et lancez la réduction</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-panel">
+                    <div class="slider-container">
+                        <label for="reductionSlider">Taux de réduction</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="reductionSlider" min="10" max="90" value="50" class="slider">
+                            <div class="slider-value">
+                                <span id="reductionValue">50</span>%
+                            </div>
+                        </div>
+                        <div class="slider-labels">
+                            <span>10% (moins de réduction)</span>
+                            <span>90% (plus de réduction)</span>
+                        </div>
+                    </div>
+
+                    <div class="estimated-result">
+                        <p>Triangles estimés après réduction: <strong id="estimatedTriangles">-</strong></p>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" id="newFileBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            Nouveau fichier
+                        </button>
+                        <button class="btn btn-primary btn-large" id="reduceBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7,10 12,15 17,10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Réduire le mesh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container hidden" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">Traitement en cours...</p>
+                </div>
+
+                <!-- Result Section -->
+                <div class="result-section hidden" id="resultSection">
+                    <div class="result-card">
+                        <div class="result-icon success">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22,4 12,14.01 9,11.01"/>
+                            </svg>
+                        </div>
+                        <h3>Réduction terminée !</h3>
+                        <div class="result-stats">
+                            <div class="stat-comparison">
+                                <div class="stat-before">
+                                    <span class="label">Avant</span>
+                                    <span class="value" id="beforeTriangles">-</span>
+                                    <span class="unit">triangles</span>
+                                </div>
+                                <div class="stat-arrow">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                        <polyline points="12,5 19,12 12,19"/>
+                                    </svg>
+                                </div>
+                                <div class="stat-after">
+                                    <span class="label">Après</span>
+                                    <span class="value" id="afterTriangles">-</span>
+                                    <span class="unit">triangles</span>
+                                </div>
+                            </div>
+                            <div class="reduction-badge">
+                                <span id="reductionPercentage">-</span>% de réduction
+                            </div>
+                        </div>
+                        <button class="btn btn-success btn-large" id="downloadBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7,10 12,15 17,10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Télécharger le fichier réduit
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>STL Reducer SaaS - Vos fichiers sont automatiquement supprimés après 24 heures</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">Chargement...</p>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
