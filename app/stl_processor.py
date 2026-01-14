@@ -84,6 +84,7 @@ def process_stl_file_trimesh(
 ) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
     """
     Traite un fichier STL avec Trimesh.
+    reduction_rate: pourcentage de faces à GARDER (0.1 = garder 10%, 0.9 = garder 90%)
     """
     # Lecture du mesh
     mesh = trimesh.load(input_path)
@@ -94,12 +95,12 @@ def process_stl_file_trimesh(
     # Informations originales
     original_info = get_mesh_info_trimesh(mesh)
 
-    # Calcul du nombre de faces cible
-    target_faces = max(int(len(mesh.faces) * reduction_rate), 100)
-
     # Simplification avec quadric decimation
-    # Trimesh utilise simplify_quadric_decimation
-    mesh_simplified = mesh.simplify_quadric_decimation(target_faces)
+    # percent = pourcentage de faces à garder (reduction_rate)
+    mesh_simplified = mesh.simplify_quadric_decimation(
+        percent=reduction_rate,
+        aggression=5
+    )
 
     # Informations après réduction
     reduced_info = get_mesh_info_trimesh(mesh_simplified)
